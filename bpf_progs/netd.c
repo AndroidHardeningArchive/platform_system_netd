@@ -347,12 +347,9 @@ DEFINE_BPF_PROG_KVER("cgroupsock/inet/create", AID_ROOT, AID_ROOT, inet_socket_c
 (struct bpf_sock* sk) {
     uint64_t gid_uid = bpf_get_current_uid_gid();
     /*
-     * A given app is guaranteed to have the same app ID in all the profiles in
-     * which it is installed, and install permission is granted to app for all
-     * user at install time so we only check the appId part of a request uid at
-     * run time. See UserHandle#isSameApp for detail.
+     * AOSP implementation track appid (basically uid but without userid part)
      */
-    uint32_t appId = (gid_uid & 0xffffffff) % PER_USER_RANGE;
+    uint32_t appId = (gid_uid & 0xffffffff);
     uint8_t* permissions = bpf_uid_permission_map_lookup_elem(&appId);
     if (!permissions) {
         // UID not in map. Default to just INTERNET permission.
