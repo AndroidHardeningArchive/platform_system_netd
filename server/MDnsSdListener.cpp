@@ -30,6 +30,7 @@
 #include <sys/poll.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <thread>
 
 #define LOG_TAG "MDnsDS"
 #define DBG 1
@@ -371,12 +372,18 @@ MDnsSdListener::Monitor::Monitor() {
     mPollSize = 10;
     socketpair(AF_LOCAL, SOCK_STREAM | SOCK_CLOEXEC, 0, mCtrlSocketPair);
 
-    const int rval = ::android::netdutils::threadLaunch(this);
-    if (rval != 0) {
-        ALOGW("Error spawning monitor thread: %s (%d)", strerror(-rval), -rval);
-    }
+    mRescanThread = new std::thread(&Monitor::run, this);
+    if (!mRescanThread->joinable()) ALOGE("Unable to launch thread.");
 }
 
+MDnsSdListener::Monitor::~Monitor() {
+    if (VDBG) ALOGD("Monitor recycling");
+    close(mCtrlSocketPair[1]);  // interrupt poll in MDnsSdListener::Monitor::run() and revent will
+                                // be 17 = POLLIN | POLLHUP
+    mRescanThread->join();
+    delete mRescanThread;
+    if (VDBG) ALOGD("Monitor recycled");
+}
 #define NAP_TIME 200  // 200 ms between polls
 static int wait_for_property(const char *name, const char *desired_value, int maxwait)
 {
@@ -456,14 +463,18 @@ void MDnsSdListener::Monitor::run() {
                 }
             }
             if (VDBG) ALOGD("controlSocket shows revent= %d", mPollFds[0].revents);
-            switch (mPollFds[0].revents) {
-                case POLLIN: {
-                    char readBuf[2];
-                    read(mCtrlSocketPair[0], &readBuf, 1);
-                    if (DBG) ALOGD("MDnsSdListener::Monitor got %c", readBuf[0]);
-                    if (memcmp(RESCAN, readBuf, 1) == 0) {
-                        pollCount = rescan();
-                    }
+            if (mPollFds[0].revents & POLLHUP) {
+                free(mPollFds);
+                free(mPollRefs);
+                if (VDBG) ALOGD("Monitor thread leaving.");
+                return;
+            }
+            if (mPollFds[0].revents == POLLIN) {
+                char readBuf[2];
+                read(mCtrlSocketPair[0], &readBuf, 1);
+                if (DBG) ALOGD("MDnsSdListener::Monitor got %c", readBuf[0]);
+                if (memcmp(RESCAN, readBuf, 1) == 0) {
+                    pollCount = rescan();
                 }
             }
             mPollFds[0].revents = 0;
