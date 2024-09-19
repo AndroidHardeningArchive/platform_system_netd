@@ -18,7 +18,6 @@
 
 #include "PhysicalNetwork.h"
 
-#include "Controllers.h"
 #include "RouteController.h"
 #include "SockDiag.h"
 
@@ -214,10 +213,6 @@ int PhysicalNetwork::addInterface(const std::string& interface) {
             return ret;
         }
     }
-    if (gCtls->multicastFirewallCtrl.setInterfaceRules(interface.c_str(), true)) {
-        ALOGE("failed to add multicast firewall rules for interface %s from netId %u",
-              interface.c_str(), mNetId);
-    }
     mInterfaces.insert(interface);
     return 0;
 }
@@ -239,15 +234,6 @@ int PhysicalNetwork::removeInterface(const std::string& interface) {
                 mNetId, interface.c_str(), mPermission, mUidRangeMap, mIsLocalNetwork)) {
         ALOGE("failed to remove interface %s from netId %u", interface.c_str(), mNetId);
         return ret;
-    }
-    if (gCtls->multicastFirewallCtrl.setInterfaceRules(interface.c_str(), false)) {
-        // We really should take some measure to ensure these rules get removed. Even if we were
-        // to return an error instead of logging, the error just ends up getting logged and no
-        // action is taken. Upstream doesn't seem to care about getting into states that could
-        // result in leaks, so there's little point making significant changes just for this
-        // particular case. Unlikely to ever be an actual issue with these particular rules.
-        ALOGE("failed to remove multicast firewall rules for interface %s from netId %u",
-              interface.c_str(), mNetId);
     }
     mInterfaces.erase(interface);
     return 0;

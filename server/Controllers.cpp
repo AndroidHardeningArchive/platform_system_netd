@@ -62,13 +62,11 @@ static const std::vector<const char*> FILTER_INPUT = {
         // correctly count incoming traffic against data plan.
         BandwidthController::LOCAL_INPUT,
         FirewallController::LOCAL_INPUT,
-        MulticastFirewallController::LOCAL_INPUT,
 };
 
 static const std::vector<const char*> FILTER_FORWARD = {
         OEM_IPTABLES_FILTER_FORWARD,
         FirewallController::LOCAL_FORWARD,
-        MulticastFirewallController::LOCAL_FORWARD,
         BandwidthController::LOCAL_FORWARD,
         TetherController::LOCAL_FORWARD,
 };
@@ -76,7 +74,6 @@ static const std::vector<const char*> FILTER_FORWARD = {
 static const std::vector<const char*> FILTER_OUTPUT = {
         OEM_IPTABLES_FILTER_OUTPUT,
         FirewallController::LOCAL_OUTPUT,
-        MulticastFirewallController::LOCAL_OUTPUT,
         StrictController::LOCAL_OUTPUT,
         BandwidthController::LOCAL_OUTPUT,
 };
@@ -281,11 +278,6 @@ void Controllers::initIptablesRules() {
     /* When enabled, DROPs all packets except those matching rules. */
     firewallCtrl.setupIptablesHooks();
     gLog.info("Setting up FirewallController hooks: %" PRId64 "us", s.getTimeAndResetUs());
-
-    /* DROPs all multicast packets not being sent/received on an explicitly allowed interface. */
-    multicastFirewallCtrl.setupIptablesHooks();
-    gLog.info("Setting up MulticastFirewallController hooks: %" PRId64 "us",
-              s.getTimeAndResetUs());
 
     /* Does DROPs in FORWARD by default */
     tetherCtrl.setupIptablesHooks();
